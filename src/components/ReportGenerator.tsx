@@ -25,8 +25,8 @@ interface PeriodConfig {
 }
 
 const categoryMap: Record<string, { name: string; color: string }> = {
-  ...INCOME_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {}),
-  ...EXPENSE_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {}),
+  ...INCOME_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {} as Record<string, typeof INCOME_CATEGORIES[0]>),
+  ...EXPENSE_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {} as Record<string, typeof EXPENSE_CATEGORIES[0]>),
 };
 
 export function ReportGenerator({ transactions }: ReportGeneratorProps) {
@@ -54,41 +54,17 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
     const now = new Date();
     switch (type) {
       case '7days':
-        return {
-          label: '7 Hari Terakhir',
-          startDate: subDays(now, 7),
-          endDate: now,
-        };
+        return { label: '7 Hari Terakhir', startDate: subDays(now, 7), endDate: now };
       case '1month':
-        return {
-          label: '1 Bulan Terakhir',
-          startDate: subMonths(now, 1),
-          endDate: now,
-        };
+        return { label: '1 Bulan Terakhir', startDate: subMonths(now, 1), endDate: now };
       case '3months':
-        return {
-          label: '3 Bulan Terakhir',
-          startDate: subMonths(now, 3),
-          endDate: now,
-        };
+        return { label: '3 Bulan Terakhir', startDate: subMonths(now, 3), endDate: now };
       case '1year':
-        return {
-          label: '1 Tahun Terakhir',
-          startDate: subYears(now, 1),
-          endDate: now,
-        };
+        return { label: '1 Tahun Terakhir', startDate: subYears(now, 1), endDate: now };
       case 'custom':
-        return {
-          label: `Periode Custom`,
-          startDate: new Date(customStartDate),
-          endDate: new Date(customEndDate),
-        };
+        return { label: 'Periode Custom', startDate: new Date(customStartDate), endDate: new Date(customEndDate) };
       default:
-        return {
-          label: '1 Bulan Terakhir',
-          startDate: subMonths(now, 1),
-          endDate: now,
-        };
+        return { label: '1 Bulan Terakhir', startDate: subMonths(now, 1), endDate: now };
     }
   };
 
@@ -113,11 +89,7 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    return {
-      totalIncome,
-      totalExpense,
-      balance: totalIncome - totalExpense,
-    };
+    return { totalIncome, totalExpense, balance: totalIncome - totalExpense };
   }, [filteredTransactions]);
 
   const generatePDF = async () => {
@@ -206,8 +178,7 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
               border: '1px solid #b8a890',
               color: '#5a3a1e',
               boxShadow: '0 3px 0 #908070, 0 4px 6px rgba(0,0,0,0.15)'
-            }}
-          >
+            }}>
             <FileDown className="h-4 w-4" />
             Laporan PDF
           </Button>
@@ -225,8 +196,7 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                   border: '1px solid #4a3018',
                   boxShadow: '0 3px 0 #3d2914, 0 4px 8px rgba(0,0,0,0.2)',
                   color: '#f5f0e6'
-                }}
-              >
+                }}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -242,7 +212,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Period Selection */}
           <div className="mb-4 space-y-4">
             <div>
               <Label className="text-sm font-bold mb-2 block font-serif text-[#5a3a1e]">Pilih Periode</Label>
@@ -252,8 +221,7 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                     background: 'linear-gradient(180deg, #d8d0c0 0%, #c8c0b0 100%)',
                     padding: '4px',
                     borderRadius: '8px'
-                  }}
-                >
+                  }}>
                   <TabsTrigger value="7days" className="font-serif text-xs">7 Hari</TabsTrigger>
                   <TabsTrigger value="1month" className="font-serif text-xs">1 Bulan</TabsTrigger>
                   <TabsTrigger value="3months" className="font-serif text-xs">3 Bulan</TabsTrigger>
@@ -297,20 +265,16 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
             </div>
           </div>
 
-          {/* Report Content */}
           <div
             ref={reportRef}
             className="bg-white p-8 text-slate-800"
-            style={{ width: '210mm', minHeight: '297mm' }}
-          >
-            {/* Header */}
+            style={{ width: '210mm', minHeight: '297mm' }}>
             <div className="text-center border-b-4 border-[#8b5a2b] pb-6 mb-8"
               style={{
                 background: 'linear-gradient(180deg, #f5f0e6 0%, #e8e0d0 100%)',
                 margin: '-32px -32px 32px -32px',
                 padding: '32px'
-              }}
-            >
+              }}>
               <h1 className="text-3xl font-serif font-bold text-[#3d2914] mb-2">
                 LAPORAN KEUANGAN PRIBADI
               </h1>
@@ -333,7 +297,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
               </div>
             ) : (
               <>
-                {/* Summary Section */}
                 <div className="mb-8">
                   <h2 className="text-xl font-serif font-bold text-[#3d2914] mb-4 border-l-4 border-[#4a6a8a] pl-3">
                     Ringkasan Keuangan
@@ -367,7 +330,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                   </div>
                 </div>
 
-                {/* Statistics */}
                 <div className="mb-8">
                   <h2 className="text-xl font-serif font-bold text-[#3d2914] mb-4 border-l-4 border-[#8b5a2b] pl-3">
                     Statistik Transaksi
@@ -404,7 +366,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                   </div>
                 </div>
 
-                {/* Top Income Categories */}
                 {topIncomes.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-xl font-serif font-bold text-[#3d2914] mb-4 border-l-4 border-[#4a8a5a] pl-3">
@@ -439,7 +400,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                   </div>
                 )}
 
-                {/* Top Expense Categories */}
                 {topExpenses.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-xl font-serif font-bold text-[#3d2914] mb-4 border-l-4 border-[#a54a4a] pl-3">
@@ -474,7 +434,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
                   </div>
                 )}
 
-                {/* All Transactions */}
                 <div className="mb-8">
                   <h2 className="text-xl font-serif font-bold text-[#3d2914] mb-4 border-l-4 border-[#8b5a2b] pl-3">
                     Daftar Transaksi ({filteredTransactions.length})
@@ -519,7 +478,6 @@ export function ReportGenerator({ transactions }: ReportGeneratorProps) {
               </>
             )}
 
-            {/* Footer */}
             <div className="mt-12 pt-6 border-t-4 border-[#8b5a2b] text-center text-sm text-[#6b4423] font-serif"
               style={{ background: 'linear-gradient(180deg, #f5f0e6 0%, #e8e0d0 100%)', margin: '0 -32px -32px -32px', padding: '24px 32px' }}>
               <p>Laporan ini dibuat otomatis oleh aplikasi Catatan Keuangan Pribadi</p>
