@@ -35,7 +35,6 @@ export function useSupabaseFinance() {
       .order('date', { ascending: false })
     
     if (!error && data) {
-      // Map dari database format ke app format
       const mappedData: Transaction[] = data.map((item: any) => ({
         id: item.id,
         amount: item.amount,
@@ -109,4 +108,6 @@ export function useSupabaseFinance() {
     addTransaction,
     deleteTransaction,
     loadTransactions,
-    get
+    getSummary
+  }
+}
