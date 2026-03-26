@@ -1,29 +1,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-
-export interface Transaction {
-  id: string
-  user_id: string
-  type: 'income' | 'expense'
-  amount: number
-  category: string
-  description: string
-  date: string
-  created_at: string
-}
+import type { Transaction, TransactionType } from '../types/finance'
 
 export function useSupabaseFinance() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<any>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
       setUser(session?.user || null)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       setUser(session?.user || null)
     })
 
@@ -45,19 +35,42 @@ export function useSupabaseFinance() {
       .order('date', { ascending: false })
     
     if (!error && data) {
-      setTransactions(data)
+      // Map dari database format ke app format
+      const mappedData: Transaction[] = data.map((item: any) => ({
+        id: item.id,
+        amount: item.amount,
+        description: item.description,
+        category: item.category,
+        type: item.type,
+        date: item.date,
+        createdAt: new Date(item.created_at).getTime()
+      }))
+      setTransactions(mappedData)
     }
   }
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at'>) => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     const { data, error } = await supabase
       .from('transactions')
-      .insert([transaction])
+      .insert([{
+        ...transaction,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      }])
       .select()
     
     if (!error && data) {
-      setTransactions(prev => [data[0], ...prev])
-      return data[0]
+      const newTransaction: Transaction = {
+        id: data[0].id,
+        amount: data[0].amount,
+        description: data[0].description,
+        category: data[0].category,
+        type: data[0].type,
+        date: data[0].date,
+        createdAt: new Date(data[0].created_at).getTime()
+      }
+      setTransactions(prev => [newTransaction, ...prev])
+      return newTransaction
     }
     return null
   }
