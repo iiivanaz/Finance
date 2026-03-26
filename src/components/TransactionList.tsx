@@ -45,7 +45,7 @@ import {
   Save,
 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types/finance';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types/finance';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, ALL_CATEGORIES } from '@/types/finance';
 import { format, subDays, subMonths, subYears, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -74,10 +74,7 @@ const iconMap: Record<string, React.ElementType> = {
   MoreHorizontal,
 };
 
-const categoryMap: Record<string, { name: string; color: string; icon: string; type: TransactionType }> = {
-  ...INCOME_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: { ...cat, type: 'income' as TransactionType } }), {}),
-  ...EXPENSE_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: { ...cat, type: 'expense' as TransactionType } }), {}),
-};
+const categoryMap = ALL_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {} as Record<string, typeof ALL_CATEGORIES[0]>);
 
 const periodLabels: Record<PeriodType, string> = {
   all: 'Semua Waktu',
@@ -127,12 +124,10 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
 
-    // Filter by type
     if (filter !== 'all') {
       filtered = filtered.filter((t) => t.type === filter);
     }
 
-    // Filter by period
     if (periodConfig) {
       const start = startOfDay(periodConfig.startDate);
       const end = endOfDay(periodConfig.endDate);
@@ -142,7 +137,6 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
       });
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((t) =>
@@ -174,7 +168,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
   };
 
   const getCategoryInfo = (categoryId: string) => {
-    return categoryMap[categoryId] || { name: categoryId, color: '#6b7280', icon: 'MoreHorizontal', type: 'expense' };
+    return categoryMap[categoryId] || { name: categoryId, color: '#6b7280', icon: 'MoreHorizontal', type: 'expense' as TransactionType };
   };
 
   const clearPeriodFilter = () => {
@@ -213,15 +207,13 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                 background: 'linear-gradient(180deg, #8b5a2b 0%, #6b4423 50%, #5a3a1e 100%)',
                 border: '1px solid #4a3018',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}
-            >
+              }}>
               <Calendar className="h-4 w-4 text-[#f5f0e6]" />
             </div>
             <CardTitle className="text-lg font-serif font-bold text-[#5a3a1e]">Riwayat Transaksi</CardTitle>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Search Input */}
             <div className="relative">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#a09080]" />
               <Input
@@ -241,7 +233,6 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
               )}
             </div>
 
-            {/* Period Filter Popover */}
             <Popover open={filterOpen} onOpenChange={setFilterOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -255,8 +246,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                     border: '1px solid #b8a890',
                     color: periodType !== 'all' ? '#f5f0e6' : '#5a3a1e',
                     boxShadow: '0 3px 0 #908070, 0 4px 6px rgba(0,0,0,0.15)'
-                  }}
-                >
+                  }}>
                   <Filter className="h-4 w-4" />
                   {periodLabels[periodType]}
                 </Button>
@@ -288,8 +278,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                         background: 'linear-gradient(180deg, #d8d0c0 0%, #c8c0b0 100%)',
                         padding: '4px',
                         borderRadius: '8px'
-                      }}
-                    >
+                      }}>
                       <TabsTrigger value="7days" className="font-serif text-xs">7 Hari</TabsTrigger>
                       <TabsTrigger value="1month" className="font-serif text-xs">1 Bulan</TabsTrigger>
                       <TabsTrigger value="3months" className="font-serif text-xs">3 Bulan</TabsTrigger>
@@ -299,8 +288,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                         background: 'linear-gradient(180deg, #d8d0c0 0%, #c8c0b0 100%)',
                         padding: '4px',
                         borderRadius: '8px'
-                      }}
-                    >
+                      }}>
                       <TabsTrigger value="1year" className="font-serif text-xs">1 Tahun</TabsTrigger>
                       <TabsTrigger value="custom" className="font-serif text-xs">Custom</TabsTrigger>
                       <TabsTrigger value="all" className="font-serif text-xs">Semua</TabsTrigger>
@@ -344,23 +332,20 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                       boxShadow: '0 3px 0 #3d2914, 0 4px 8px rgba(0,0,0,0.2)',
                       color: '#f5f0e6'
                     }}
-                    onClick={() => setFilterOpen(false)}
-                  >
+                    onClick={() => setFilterOpen(false)}>
                     Terapkan
                   </Button>
                 </div>
               </PopoverContent>
             </Popover>
 
-            {/* Type Filter */}
             <Tabs value={filter} onValueChange={(v) => setFilter(v as TransactionType | 'all')}>
               <TabsList className="h-9 gap-1"
                 style={{
                   background: 'linear-gradient(180deg, #d8d0c0 0%, #c8c0b0 100%)',
                   padding: '3px',
                   borderRadius: '8px'
-                }}
-              >
+                }}>
                 <TabsTrigger value="all" className="text-xs px-3 font-serif data-[state=active]:shadow-md">
                   Semua
                 </TabsTrigger>
@@ -375,7 +360,6 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
           </div>
         </div>
 
-        {/* Summary Bar */}
         {periodSummary.count > 0 && (
           <div className="flex items-center gap-4 mt-3 text-sm bg-[#f5f0e6] p-2 rounded-lg border border-[#d8d0c0]">
             <span className="text-[#5a3a1e] font-serif">
@@ -403,8 +387,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                   background: 'linear-gradient(180deg, #e8e0d0 0%, #d8d0c0 100%)',
                   border: '2px solid #c8bba0',
                   boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
-                }}
-              >
+                }}>
                 <Calendar className="h-8 w-8" />
               </div>
               <p className="font-serif text-sm">
@@ -434,8 +417,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                           background: `linear-gradient(180deg, ${categoryInfo.color}40 0%, ${categoryInfo.color}60 100%)`,
                           border: `1px solid ${categoryInfo.color}80`,
                           boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.1)'
-                        }}
-                      >
+                        }}>
                         <IconComponent
                           className="h-5 w-5"
                           style={{ color: categoryInfo.color, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }}
@@ -454,8 +436,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                                 : 'linear-gradient(180deg, #e8d0d0 0%, #dcb8b8 100%)',
                               border: transaction.type === 'income' ? '1px solid #4a8a5a' : '1px solid #a54a4a',
                               color: transaction.type === 'income' ? '#1d4a2d' : '#6b2a2a'
-                            }}
-                          >
+                            }}>
                             {categoryInfo.name}
                           </span>
                           <span className="text-xs text-[#908070] font-serif">
@@ -466,13 +447,9 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p
-                          className={`font-serif font-bold text-sm ${
-                            transaction.type === 'income'
-                              ? 'text-[#1d4a2d]'
-                              : 'text-[#6b2a2a]'
-                          }`}
-                        >
+                        <p className={`font-serif font-bold text-sm ${
+                          transaction.type === 'income' ? 'text-[#1d4a2d]' : 'text-[#6b2a2a]'
+                        }`}>
                           {transaction.type === 'income' ? '+' : '-'}
                           {formatCurrency(transaction.amount)}
                         </p>
@@ -485,25 +462,21 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                         </div>
                       </div>
                       
-                      {/* Edit Button */}
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 skeuo-icon-button"
-                        onClick={() => handleEdit(transaction)}
-                      >
+                        onClick={() => handleEdit(transaction)}>
                         <Edit2 className="h-4 w-4 text-[#8b5a2b]" />
                       </Button>
                       
-                      {/* Delete Button */}
                       <Dialog open={deleteId === transaction.id} onOpenChange={(open) => !open && setDeleteId(null)}>
                         <DialogTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 skeuo-icon-button"
-                            onClick={() => setDeleteId(transaction.id)}
-                          >
+                            onClick={() => setDeleteId(transaction.id)}>
                             <Trash2 className="h-4 w-4 text-[#8b3a3a]" />
                           </Button>
                         </DialogTrigger>
@@ -518,8 +491,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                             <Button 
                               variant="outline" 
                               onClick={() => setDeleteId(null)}
-                              className="font-serif"
-                            >
+                              className="font-serif">
                               Batal
                             </Button>
                             <Button
@@ -533,8 +505,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                                 background: 'linear-gradient(180deg, #a54a4a 0%, #8b3a3a 50%, #6b2a2a 100%)',
                                 border: '1px solid #4a1a1a',
                                 boxShadow: '0 3px 0 #3a0a0a, 0 4px 8px rgba(0,0,0,0.2)'
-                              }}
-                            >
+                              }}>
                               Hapus
                             </Button>
                           </DialogFooter>
@@ -598,8 +569,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
               <Button
                 onClick={() => setEditTransaction(null)}
                 variant="outline"
-                className="flex-1 font-serif"
-              >
+                className="flex-1 font-serif">
                 Batal
               </Button>
               <Button
@@ -610,8 +580,7 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
                   border: '1px solid #1d3a1d',
                   boxShadow: '0 3px 0 #0d2a0d, 0 4px 8px rgba(0,0,0,0.2)',
                   color: '#f5f0e6'
-                }}
-              >
+                }}>
                 <Save className="h-4 w-4" />
                 Simpan
               </Button>
