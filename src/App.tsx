@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSupabaseFinance } from './hooks/useSupabaseFinance';
 import { Auth } from './components/Auth';
 import { SummaryCards } from './components/SummaryCards';
@@ -15,10 +15,9 @@ import {
   TrendingUp,
   TrendingDown,
   History,
-  BarChart3,
   LogOut
 } from 'lucide-react';
-import type { Transaction, TransactionType } from './types/finance';
+import type { TransactionType } from './types/finance';
 
 function App() {
   const {
@@ -30,7 +29,7 @@ function App() {
     getSummary
   } = useSupabaseFinance();
 
-  // Budget state (untuk kompatibilitas dengan BudgetManager)
+  // Budget state
   const [budgets, setBudgets] = useState<any[]>([]);
 
   // Jika belum login, tampilkan halaman Auth
@@ -40,6 +39,63 @@ function App() {
 
   const summary = getSummary();
 
+  // Data untuk Charts
+  const expenseByCategory = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const incomeByCategory = transactions
+    .filter(t => t.type === 'income')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  // Monthly data
+  const monthlyData = transactions.reduce((acc, t) => {
+    const month = t.date.substring(0, 7);
+    if (!acc[month]) {
+      acc[month] = { income: 0, expense: 0 };
+    }
+    if (t.type === 'income') {
+      acc[month].income += t.amount;
+    } else {
+      acc[month].expense += t.amount;
+    }
+    return acc;
+  }, {} as Record<string, { income: number; expense: number }>);
+
+  // Monthly stats untuk SummaryCards
+  const currentMonth = new Date().toISOString().substring(0, 7);
+  const previousMonth = new Date();
+  previousMonth.setMonth(previousMonth.getMonth() - 1);
+  const prevMonthStr = previousMonth.toISOString().substring(0, 7);
+  
+  const monthlyStats = {
+    currentMonth: monthlyData[currentMonth] || { income: 0, expense: 0 },
+    previousMonth: monthlyData[prevMonthStr] || { income: 0, expense: 0 },
+    incomeChange: 0,
+    expenseChange: 0
+  };
+
+  // Budget functions
+  const getBudgetStatus = () => {
+    return budgets.map(budget => {
+      const spent = transactions
+        .filter(t => t.type === 'expense' && t.category === budget.categoryId)
+        .reduce((sum, t) => sum + t.amount, 0);
+      return {
+        ...budget,
+        spent,
+        remaining: budget.amount - spent,
+        percentage: (spent / budget.amount) * 100
+      };
+    });
+  };
+
   const handleAddTransaction = (data: {
     amount: number;
     description: string;
@@ -47,9 +103,7 @@ function App() {
     type: TransactionType;
     date: string;
   }) => {
-    addTransaction({
-      ...data
-    });
+    addTransaction(data);
     toast.success(
       data.type === 'income' ? 'Pemasukan berhasil ditambahkan' : 'Pengeluaran berhasil ditambahkan',
       {
@@ -69,58 +123,6 @@ function App() {
     const { supabase } = await import('./lib/supabase');
     await supabase.auth.signOut();
     toast.success('Berhasil logout');
-  };
-
-  // Data untuk Charts (dihitung dari transactions)
-  const expenseByCategory = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const incomeByCategory = transactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  // Monthly data (group by month)
-  const monthlyData = transactions.reduce((acc, t) => {
-    const month = t.date.substring(0, 7); // YYYY-MM
-    if (!acc[month]) {
-      acc[month] = { income: 0, expense: 0 };
-    }
-    if (t.type === 'income') {
-      acc[month].income += t.amount;
-    } else {
-      acc[month].expense += t.amount;
-    }
-    return acc;
-  }, {} as Record<string, { income: number; expense: number }>);
-
-  // Budget functions
-  const getBudgetStatus = () => {
-    return budgets.map(budget => {
-      const spent = transactions
-        .filter(t => t.type === 'expense' && t.category === budget.categoryId)
-        .reduce((sum, t) => sum + t.amount, 0);
-      return {
-        ...budget,
-        spent,
-        remaining: budget.amount - spent,
-        percentage: (spent / budget.amount) * 100
-      };
-    });
-  };
-
-  const setBudget = (budget: any) => {
-    setBudgets(prev => [...prev, budget]);
-  };
-
-  const deleteBudget = (categoryId: string) => {
-    setBudgets(prev => prev.filter(b => b.categoryId !== categoryId));
   };
 
   if (loading) {
@@ -157,30 +159,47 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        <SummaryCards />
+        <SummaryCards 
+          summary={{
+            totalIncome: summary.income,
+            totalExpense: summary.expense,
+            balance: summary.balance
+          }}
+          monthlyStats={monthlyStats}
+        />
 
         {/* Quick Add */}
         <div className="mt-6">
-          <QuickAdd />
+          <QuickAdd onAdd={handleAddTransaction} />
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           {/* Left Column - Forms and Lists */}
           <div className="lg:col-span-2 space-y-6">
-            <TransactionForm />
+            <TransactionForm onSubmit={handleAddTransaction} />
             
             <TransactionList 
               transactions={transactions}
               onDelete={handleDeleteTransaction}
+              onEdit={() => {}} // Placeholder untuk edit
             />
           </div>
 
           {/* Right Column - Charts and Budget */}
           <div className="space-y-6">
-            <Charts />
-            <BudgetManager />
-            <ReportGenerator />
+            <Charts 
+              expenseByCategory={expenseByCategory}
+              incomeByCategory={incomeByCategory}
+              monthlyData={monthlyData}
+            />
+            <BudgetManager 
+              budgets={budgets}
+              getBudgetStatus={getBudgetStatus}
+              setBudget={(budget) => setBudgets([...budgets, budget])}
+              deleteBudget={(categoryId) => setBudgets(budgets.filter(b => b.categoryId !== categoryId))}
+            />
+            <ReportGenerator transactions={transactions} />
           </div>
         </div>
       </main>
