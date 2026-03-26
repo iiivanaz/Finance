@@ -23,8 +23,6 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
   };
 
   const getChangeColor = (change: number, isIncome: boolean) => {
-    // For income: increase is good (green), decrease is bad (red)
-    // For expense: increase is bad (red), decrease is good (green)
     if (change === 0) return 'text-[#a09080]';
     if (isIncome) {
       return change > 0 ? 'text-[#2d5a3d]' : 'text-[#8b3a3a]';
@@ -44,8 +42,7 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
                 background: 'linear-gradient(180deg, #4a6a8a 0%, #3a5a7a 50%, #2a4a6a 100%)',
                 border: '2px solid #1a3a5a',
                 boxShadow: '0 3px 6px rgba(0,0,0,0.3)'
-              }}
-            >
+              }}>
               <TrendingUp className="h-5 w-5 text-[#f0f5f8]" />
             </div>
             <div>
@@ -55,7 +52,6 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
           </div>
           
           <div className="flex items-center gap-6">
-            {/* Income Change */}
             <div className="text-center">
               <p className="text-xs text-[#a09080] font-serif mb-1">Pemasukan</p>
               <div className={`flex items-center gap-1 font-serif font-bold ${getChangeColor(monthlyStats.incomeChange, true)}`}>
@@ -64,7 +60,6 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
               </div>
             </div>
             
-            {/* Expense Change */}
             <div className="text-center">
               <p className="text-xs text-[#a09080] font-serif mb-1">Pengeluaran</p>
               <div className={`flex items-center gap-1 font-serif font-bold ${getChangeColor(monthlyStats.expenseChange, false)}`}>
@@ -92,8 +87,7 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
                 background: 'linear-gradient(180deg, #4a8a5a 0%, #2d5a3d 50%, #1d4a2d 100%)',
                 border: '1px solid #1d3a1d',
                 boxShadow: '0 3px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)'
-              }}
-            >
+              }}>
               <TrendingUp className="h-5 w-5 text-[#e8f5e8]" />
             </div>
           </div>
@@ -119,8 +113,7 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
                 background: 'linear-gradient(180deg, #a54a4a 0%, #8b3a3a 50%, #6b2a2a 100%)',
                 border: '1px solid #4a1a1a',
                 boxShadow: '0 3px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)'
-              }}
-            >
+              }}>
               <TrendingDown className="h-5 w-5 text-[#f5e8e8]" />
             </div>
           </div>
@@ -148,8 +141,7 @@ export function SummaryCards({ summary, monthlyStats }: SummaryCardsProps) {
                   : 'linear-gradient(180deg, #a54a4a 0%, #8b3a3a 50%, #6b2a2a 100%)',
                 border: summary.balance >= 0 ? '1px solid #1a3a5a' : '1px solid #4a1a1a',
                 boxShadow: '0 3px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)'
-              }}
-            >
+              }}>
               <Wallet className="h-5 w-5 text-[#f0f5f8]" />
             </div>
           </div>
