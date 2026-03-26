@@ -3,22 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-// Budget Manager Component
 import { Target, Plus, Trash2, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { EXPENSE_CATEGORIES, type Category } from '@/types/finance';
+import { EXPENSE_CATEGORIES, type BudgetStatus } from '@/types/finance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 interface BudgetManagerProps {
   budgets: Record<string, { categoryId: string; amount: number; period: 'monthly' | 'yearly' }>;
-  getBudgetStatus: (categoryId: string, year: number, month: number) => {
-    budget: number;
-    spent: number;
-    remaining: number;
-    percentage: number;
-    isWarning: boolean;
-    isOver: boolean;
-  } | null;
+  getBudgetStatus: (categoryId: string, year: number, month: number) => BudgetStatus | null;
   setBudget: (categoryId: string, amount: number, period?: 'monthly' | 'yearly') => void;
   deleteBudget: (categoryId: string) => void;
 }
@@ -29,7 +21,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
   const [budgetAmount, setBudgetAmount] = useState('');
   
   const now = new Date();
-  const categoryMap: Record<string, Category> = EXPENSE_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {} as Record<string, Category>);
+  const categoryMap = EXPENSE_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {} as Record<string, typeof EXPENSE_CATEGORIES[0]>);
   
   const activeBudgets = Object.values(budgets);
 
@@ -50,13 +42,13 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
     }).format(amount);
   };
 
-  const getStatusIcon = (status: { isWarning: boolean; isOver: boolean; percentage: number }) => {
+  const getStatusIcon = (status: BudgetStatus) => {
     if (status.isOver) return <AlertCircle className="h-5 w-5 text-[#8b3a3a]" />;
     if (status.isWarning) return <AlertTriangle className="h-5 w-5 text-[#c9a227]" />;
     return <CheckCircle2 className="h-5 w-5 text-[#2d5a3d]" />;
   };
 
-  const getProgressColor = (status: { isWarning: boolean; isOver: boolean }) => {
+  const getProgressColor = (status: BudgetStatus) => {
     if (status.isOver) return 'bg-[#8b3a3a]';
     if (status.isWarning) return 'bg-[#c9a227]';
     return 'bg-[#2d5a3d]';
@@ -71,8 +63,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
               background: 'linear-gradient(180deg, #c9a227 0%, #a88220 50%, #8b6914 100%)',
               border: '2px solid #6b5010',
               boxShadow: '0 3px 6px rgba(0,0,0,0.3)'
-            }}
-          >
+            }}>
             <Target className="h-5 w-5 text-[#f5f0e6]" />
           </div>
           <div>
@@ -94,7 +85,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
               }}
             >
               <Plus className="h-4 w-4" />
-              Tambah Budget
+              Tambah
             </Button>
           </DialogTrigger>
           <DialogContent className="skeuo-card">
@@ -119,7 +110,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
                 <Label className="text-sm font-serif text-[#5a3a1e]">Budget Bulanan (Rp)</Label>
                 <Input
                   type="number"
-                  placeholder="1.500.000"
+                  placeholder="1500000"
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(e.target.value)}
                   className="skeuo-input h-10 mt-1 font-serif"
@@ -146,7 +137,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
       {activeBudgets.length === 0 ? (
         <div className="text-center py-8 text-[#a09080]">
           <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="font-serif text-sm">Belum ada budget yang ditetapkan</p>
+          <p className="font-serif text-sm">Belum ada budget</p>
           <p className="font-serif text-xs mt-1">Tambah budget untuk mengontrol pengeluaran</p>
         </div>
       ) : (
@@ -186,8 +177,7 @@ export function BudgetManager({ budgets, getBudgetStatus, setBudget, deleteBudge
                     style={{ 
                       background: 'linear-gradient(180deg, #e0d8c8 0%, #d0c8b8 100%)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                    }}
-                  >
+                    }}>
                     <div
                       className={`h-full transition-all duration-500 ${getProgressColor(status)}`}
                       style={{ 
