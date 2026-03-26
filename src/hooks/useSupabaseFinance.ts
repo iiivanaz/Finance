@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Transaction, TransactionType } from '../types/finance'
+import type { Transaction } from '../types/finance'
 
 export function useSupabaseFinance() {
   const [user, setUser] = useState<any>(null)
@@ -13,7 +13,7 @@ export function useSupabaseFinance() {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_: any, session: any) => {
       setUser(session?.user || null)
     })
 
@@ -109,6 +109,4 @@ export function useSupabaseFinance() {
     addTransaction,
     deleteTransaction,
     loadTransactions,
-    getSummary
-  }
-}
+    get
