@@ -1,4 +1,3 @@
-// Charts component - no card imports needed
 import {
   PieChart,
   Pie,
@@ -31,7 +30,6 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
     return `Rp${value}`;
   };
 
-  // Prepare expense pie chart data
   const expenseChartData = Object.entries(expenseByCategory)
     .map(([categoryId, amount]) => {
       const category = EXPENSE_CATEGORIES.find((c) => c.id === categoryId);
@@ -44,7 +42,6 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
 
-  // Prepare income pie chart data
   const incomeChartData = Object.entries(incomeByCategory)
     .map(([categoryId, amount]) => {
       const category = INCOME_CATEGORIES.find((c) => c.id === categoryId);
@@ -57,7 +54,6 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
 
-  // Format month labels
   const formattedMonthlyData = monthlyData.map((item) => {
     const [year, month] = item.month.split('-');
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -67,7 +63,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
     };
   });
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div 
@@ -76,10 +72,9 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
             background: 'linear-gradient(180deg, #f5f0e6 0%, #ebe5d8 100%)',
             border: '1px solid #c8bba0',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-          }}
-        >
+          }}>
           {label && <p className="font-serif font-bold text-[#5a3a1e] mb-1">{label}</p>}
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p key={index} className="text-sm font-serif" style={{ color: entry.color }}>
               {entry.name}: {formatCurrency(entry.value)}
             </p>
@@ -100,8 +95,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
               background: 'linear-gradient(180deg, #a54a4a 0%, #8b3a3a 50%, #6b2a2a 100%)',
               border: '1px solid #4a1a1a',
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-          >
+            }}>
             <PieChartIcon className="h-4 w-4 text-[#f5e8e8]" />
           </div>
           <h3 className="font-serif font-bold text-[#5a3a1e]">Pengeluaran per Kategori</h3>
@@ -117,8 +111,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
                   innerRadius={50}
                   outerRadius={80}
                   paddingAngle={2}
-                  dataKey="value"
-                >
+                  dataKey="value">
                   {expenseChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="#f5f0e6" strokeWidth={2} />
                   ))}
@@ -148,8 +141,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
               background: 'linear-gradient(180deg, #4a8a5a 0%, #2d5a3d 50%, #1d4a2d 100%)',
               border: '1px solid #1d3a1d',
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-          >
+            }}>
             <PieChartIcon className="h-4 w-4 text-[#e8f5e8]" />
           </div>
           <h3 className="font-serif font-bold text-[#5a3a1e]">Pemasukan per Kategori</h3>
@@ -165,8 +157,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
                   innerRadius={50}
                   outerRadius={80}
                   paddingAngle={2}
-                  dataKey="value"
-                >
+                  dataKey="value">
                   {incomeChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="#f5f0e6" strokeWidth={2} />
                   ))}
@@ -196,8 +187,7 @@ export function Charts({ expenseByCategory, incomeByCategory, monthlyData }: Cha
               background: 'linear-gradient(180deg, #4a6a8a 0%, #3a5a7a 50%, #2a4a6a 100%)',
               border: '1px solid #1a3a5a',
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-          >
+            }}>
             <BarChart3 className="h-4 w-4 text-[#f0f5f8]" />
           </div>
           <h3 className="font-serif font-bold text-[#5a3a1e]">Tren Bulanan</h3>
