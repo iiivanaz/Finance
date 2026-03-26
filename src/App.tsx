@@ -1,13 +1,14 @@
-import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
-import { Auth } from '@/components/Auth';
-import { SummaryCards } from '@/components/SummaryCards';
-import { TransactionForm } from '@/components/TransactionForm';
-import { TransactionList } from '@/components/TransactionList';
-import { Charts } from '@/components/Charts';
-import { ReportGenerator } from '@/components/ReportGenerator';
-import { BudgetManager } from '@/components/BudgetManager';
-import { QuickAdd } from '@/components/QuickAdd';
-import { Toaster } from '@/components/ui/sonner';
+import { useState, useEffect } from 'react';
+import { useSupabaseFinance } from './hooks/useSupabaseFinance';
+import { Auth } from './components/Auth';
+import { SummaryCards } from './components/SummaryCards';
+import { TransactionForm } from './components/TransactionForm';
+import { TransactionList } from './components/TransactionList';
+import { Charts } from './components/Charts';
+import { ReportGenerator } from './components/ReportGenerator';
+import { BudgetManager } from './components/BudgetManager';
+import { QuickAdd } from './components/QuickAdd';
+import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import {
   Wallet,
@@ -17,7 +18,7 @@ import {
   BarChart3,
   LogOut
 } from 'lucide-react';
-import type { TransactionType } from '@/types/finance';
+import type { Transaction, TransactionType } from './types/finance';
 
 function App() {
   const {
@@ -28,6 +29,9 @@ function App() {
     deleteTransaction,
     getSummary
   } = useSupabaseFinance();
+
+  // Budget state (untuk kompatibilitas dengan BudgetManager)
+  const [budgets, setBudgets] = useState<any[]>([]);
 
   // Jika belum login, tampilkan halaman Auth
   if (!user) {
@@ -44,8 +48,7 @@ function App() {
     date: string;
   }) => {
     addTransaction({
-      ...data,
-      user_id: user.id
+      ...data
     });
     toast.success(
       data.type === 'income' ? 'Pemasukan berhasil ditambahkan' : 'Pengeluaran berhasil ditambahkan',
@@ -63,9 +66,61 @@ function App() {
   };
 
   const handleLogout = async () => {
-    const { supabase } = await import('@/lib/supabase');
+    const { supabase } = await import('./lib/supabase');
     await supabase.auth.signOut();
     toast.success('Berhasil logout');
+  };
+
+  // Data untuk Charts (dihitung dari transactions)
+  const expenseByCategory = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const incomeByCategory = transactions
+    .filter(t => t.type === 'income')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  // Monthly data (group by month)
+  const monthlyData = transactions.reduce((acc, t) => {
+    const month = t.date.substring(0, 7); // YYYY-MM
+    if (!acc[month]) {
+      acc[month] = { income: 0, expense: 0 };
+    }
+    if (t.type === 'income') {
+      acc[month].income += t.amount;
+    } else {
+      acc[month].expense += t.amount;
+    }
+    return acc;
+  }, {} as Record<string, { income: number; expense: number }>);
+
+  // Budget functions
+  const getBudgetStatus = () => {
+    return budgets.map(budget => {
+      const spent = transactions
+        .filter(t => t.type === 'expense' && t.category === budget.categoryId)
+        .reduce((sum, t) => sum + t.amount, 0);
+      return {
+        ...budget,
+        spent,
+        remaining: budget.amount - spent,
+        percentage: (spent / budget.amount) * 100
+      };
+    });
+  };
+
+  const setBudget = (budget: any) => {
+    setBudgets(prev => [...prev, budget]);
+  };
+
+  const deleteBudget = (categoryId: string) => {
+    setBudgets(prev => prev.filter(b => b.categoryId !== categoryId));
   };
 
   if (loading) {
@@ -102,22 +157,18 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        <SummaryCards 
-          income={summary.income}
-          expense={summary.expense}
-          balance={summary.balance}
-        />
+        <SummaryCards />
 
         {/* Quick Add */}
         <div className="mt-6">
-          <QuickAdd onAdd={handleAddTransaction} />
+          <QuickAdd />
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           {/* Left Column - Forms and Lists */}
           <div className="lg:col-span-2 space-y-6">
-            <TransactionForm onAdd={handleAddTransaction} />
+            <TransactionForm />
             
             <TransactionList 
               transactions={transactions}
