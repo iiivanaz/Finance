@@ -1,361 +1,470 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { 
-  Transaction, 
-  Budget, 
-  BudgetStatus, 
-  FinanceSummary, 
-  MonthlyStats, 
-  CategoryTotal,
-  MonthlyData,
-  TransactionType 
-} from '@/types/finance';
+import type { Transaction, TransactionType, FinanceSummary, Budget, MonthlyStats, BudgetStatus } from '@/types/finance';
 
-export interface UseSupabaseFinanceReturn {
-  user: any | null;
-  transactions: Transaction[];
-  budgets: Budget[];
-  isLoaded: boolean;
-  error: string | null;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signOut: () => Promise<void>;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
-  updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
-  deleteTransaction: (id: string) => Promise<void>;
-  setBudget: (category: string, amount: number) => Promise<void>;
-  deleteBudget: (id: string) => Promise<void>;
-  getBudgetStatus: (category: string) => BudgetStatus | null;
-  getSummary: (startDate?: string, endDate?: string) => FinanceSummary;
-  getMonthlyStats: () => MonthlyStats[];
-  getCategoryTotals: (type: TransactionType, startDate?: string, endDate?: string) => CategoryTotal[];
-  getMonthlyData: () => MonthlyData[];
-  refreshData: () => Promise<void>;
+interface DbTransaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  description: string;
+  category: string;
+  type: 'income' | 'expense';
+  date: string;
+  created_at: string;
 }
 
-export function useSupabaseFinance(): UseSupabaseFinanceReturn {
-  const [user, setUser] = useState<any | null>(null);
+interface DbBudget {
+  id: string;
+  user_id: string;
+  category_id: string;
+  amount: number;
+  period: 'monthly' | 'yearly';
+  created_at: string;
+}
+
+export function useSupabaseFinance() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgets, setBudgets] = useState<Record<string, Budget>>({});
   const [isLoaded, setIsLoaded] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check auth session on mount
+  // Check auth status
   useEffect(() => {
-    const checkSession = async () => {
+    let mounted = true;
+    
+    const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-      } catch (err) {
-        console.error('Session check error:', err);
-        setUser(null);
-      } finally {
-        setIsLoaded(true);
+        console.log('Checking auth...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          if (mounted) setError(sessionError.message);
+        }
+        
+        console.log('Session:', session ? 'Found' : 'Not found');
+        
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setIsLoaded(true);
+        }
+        
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          console.log('Auth state changed:', _event);
+          if (mounted) {
+            setUser(session?.user ?? null);
+          }
+        });
+
+        return () => subscription.unsubscribe();
+      } catch (err: any) {
+        console.error('Auth check error:', err);
+        if (mounted) {
+          setError(err.message);
+          setIsLoaded(true);
+        }
       }
     };
 
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    checkAuth();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Fetch data when user changes
+  // Load data when user changes
   useEffect(() => {
-    if (user) {
-      refreshData();
-    } else {
-      setTransactions([]);
-      setBudgets([]);
-    }
-  }, [user]);
+    let mounted = true;
+    
+    const loadData = async () => {
+      if (!user) {
+        setTransactions([]);
+        setBudgets({});
+        return;
+      }
 
-  const refreshData = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setError(null);
+      console.log('Loading data for user:', user.id);
       
-      // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+      try {
+        // Load transactions
+        const { data: transactionsData, error: transError } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      if (transactionsError) throw transactionsError;
-      setTransactions(transactionsData || []);
+        if (transError) {
+          console.error('Error loading transactions:', transError);
+        } else {
+          console.log('Loaded transactions:', transactionsData?.length || 0);
+          const mappedTransactions: Transaction[] = (transactionsData || []).map((t: DbTransaction) => ({
+            id: t.id,
+            amount: t.amount,
+            description: t.description,
+            category: t.category,
+            type: t.type,
+            date: t.date,
+            createdAt: new Date(t.created_at).getTime(),
+          }));
+          if (mounted) setTransactions(mappedTransactions);
+        }
 
-      // Fetch budgets
-      const { data: budgetsData, error: budgetsError } = await supabase
-        .from('budgets')
-        .select('*')
-        .eq('user_id', user.id);
+        // Load budgets
+        const { data: budgetsData, error: budgetError } = await supabase
+          .from('budgets')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (budgetsError) throw budgetsError;
-      setBudgets(budgetsData || []);
-    } catch (err: any) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to fetch data');
-    }
+        if (budgetError) {
+          console.error('Error loading budgets:', budgetError);
+        } else {
+          console.log('Loaded budgets:', budgetsData?.length || 0);
+          const budgetsMap: Record<string, Budget> = {};
+          (budgetsData || []).forEach((b: DbBudget) => {
+            budgetsMap[b.category_id] = {
+              categoryId: b.category_id,
+              amount: b.amount,
+              period: b.period,
+            };
+          });
+          if (mounted) setBudgets(budgetsMap);
+        }
+      } catch (err: any) {
+        console.error('Load data error:', err);
+        if (mounted) setError(err.message);
+      }
+    };
+
+    loadData();
+    
+    return () => {
+      mounted = false;
+    };
   }, [user]);
 
   // Auth functions
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      return { error };
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      return { data, error };
     } catch (err: any) {
-      return { error: err };
+      return { data: null, error: err };
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      return { error };
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      return { data, error };
     } catch (err: any) {
-      return { error: err };
+      return { data: null, error: err };
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setTransactions([]);
-    setBudgets([]);
-  };
+    setBudgets({});
+  }, []);
 
   // Transaction functions
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at'>) => {
-    if (!user) throw new Error('User not authenticated');
+  const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
+    if (!user) return null;
 
-    const { error } = await supabase
-      .from('transactions')
-      .insert([{
-        ...transaction,
-        user_id: user.id,
-      }]);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          amount: transaction.amount,
+          description: transaction.description,
+          category: transaction.category,
+          type: transaction.type,
+          date: transaction.date,
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    await refreshData();
-  };
+      if (error) {
+        console.error('Error adding transaction:', error);
+        return null;
+      }
 
-  const updateTransaction = async (id: string, transaction: Partial<Transaction>) => {
-    if (!user) throw new Error('User not authenticated');
+      const dbTrans = data as DbTransaction;
+      const newTransaction: Transaction = {
+        id: dbTrans.id,
+        amount: dbTrans.amount,
+        description: dbTrans.description,
+        category: dbTrans.category,
+        type: dbTrans.type,
+        date: dbTrans.date,
+        createdAt: new Date(dbTrans.created_at).getTime(),
+      };
 
-    const { error } = await supabase
-      .from('transactions')
-      .update(transaction)
-      .eq('id', id)
-      .eq('user_id', user.id);
+      setTransactions(prev => [newTransaction, ...prev]);
+      return newTransaction;
+    } catch (err) {
+      console.error('Add transaction error:', err);
+      return null;
+    }
+  }, [user]);
 
-    if (error) throw error;
-    await refreshData();
-  };
+  const updateTransaction = useCallback(async (id: string, updates: Partial<Transaction>) => {
+    if (!user) return;
 
-  const deleteTransaction = async (id: string) => {
-    if (!user) throw new Error('User not authenticated');
-
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) throw error;
-    await refreshData();
-  };
-
-  // Budget functions
-  const setBudget = async (category: string, amount: number) => {
-    if (!user) throw new Error('User not authenticated');
-
-    // Check if budget for this category already exists
-    const existingBudget = budgets.find(b => b.category === category);
-
-    if (existingBudget) {
-      // Update existing budget
+    try {
       const { error } = await supabase
-        .from('budgets')
-        .update({ amount })
-        .eq('id', existingBudget.id)
+        .from('transactions')
+        .update({
+          amount: updates.amount,
+          description: updates.description,
+          category: updates.category,
+          type: updates.type,
+          date: updates.date,
+        })
+        .eq('id', id)
         .eq('user_id', user.id);
 
-      if (error) throw error;
-    } else {
-      // Create new budget
+      if (error) {
+        console.error('Error updating transaction:', error);
+        return;
+      }
+
+      setTransactions(prev =>
+        prev.map(t => (t.id === id ? { ...t, ...updates } : t))
+      );
+    } catch (err) {
+      console.error('Update transaction error:', err);
+    }
+  }, [user]);
+
+  const deleteTransaction = useCallback(async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting transaction:', error);
+        return;
+      }
+
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      console.error('Delete transaction error:', err);
+    }
+  }, [user]);
+
+  // Budget functions
+  const setBudget = useCallback(async (categoryId: string, amount: number, period: 'monthly' | 'yearly' = 'monthly') => {
+    if (!user) return;
+
+    const existing = budgets[categoryId];
+
+    try {
+      if (existing) {
+        const { error } = await supabase
+          .from('budgets')
+          .update({ amount, period })
+          .eq('user_id', user.id)
+          .eq('category_id', categoryId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('budgets')
+          .insert({
+            user_id: user.id,
+            category_id: categoryId,
+            amount,
+            period,
+          });
+
+        if (error) throw error;
+      }
+
+      setBudgets(prev => ({
+        ...prev,
+        [categoryId]: { categoryId, amount, period },
+      }));
+    } catch (err) {
+      console.error('Set budget error:', err);
+    }
+  }, [user, budgets]);
+
+  const deleteBudget = useCallback(async (categoryId: string) => {
+    if (!user) return;
+
+    try {
       const { error } = await supabase
         .from('budgets')
-        .insert([{
-          category,
-          amount,
-          user_id: user.id,
-        }]);
+        .delete()
+        .eq('user_id', user.id)
+        .eq('category_id', categoryId);
 
       if (error) throw error;
+
+      setBudgets(prev => {
+        const newBudgets = { ...prev };
+        delete newBudgets[categoryId];
+        return newBudgets;
+      });
+    } catch (err) {
+      console.error('Delete budget error:', err);
     }
+  }, [user]);
 
-    await refreshData();
-  };
-
-  const deleteBudget = async (id: string) => {
-    if (!user) throw new Error('User not authenticated');
-
-    const { error } = await supabase
-      .from('budgets')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) throw error;
-    await refreshData();
-  };
-
-  const getBudgetStatus = (category: string): BudgetStatus | null => {
-    const budget = budgets.find(b => b.category === category);
+  const getBudgetStatus = useCallback((categoryId: string, year: number, month: number): BudgetStatus | null => {
+    const budget = budgets[categoryId];
     if (!budget) return null;
 
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const spent = transactions
-      .filter(t => 
-        t.category === category && 
-        t.type === 'expense' &&
-        t.date.startsWith(currentMonth)
-      )
+      .filter(t => {
+        const date = new Date(t.date);
+        return t.category === categoryId && 
+               t.type === 'expense' &&
+               date.getFullYear() === year && 
+               date.getMonth() === month;
+      })
       .reduce((sum, t) => sum + t.amount, 0);
 
     const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
 
     return {
-      category,
-      budgetAmount: budget.amount,
+      budget: budget.amount,
       spent,
-      remaining: budget.amount - spent,
+      remaining: Math.max(0, budget.amount - spent),
       percentage,
-      isOverBudget: spent > budget.amount,
-      isNearLimit: percentage >= 80 && percentage <= 100,
+      isWarning: percentage >= 80 && percentage < 100,
+      isOver: percentage >= 100,
     };
-  };
+  }, [transactions, budgets]);
 
-  // Summary and stats functions
-  const getSummary = (startDate?: string, endDate?: string): FinanceSummary => {
-    let filteredTransactions = transactions;
-
-    if (startDate && endDate) {
-      filteredTransactions = transactions.filter(
-        t => t.date >= startDate && t.date <= endDate
-      );
-    }
-
-    const totalIncome = filteredTransactions
+  // Summary functions
+  const getSummary = useCallback((): FinanceSummary => {
+    const totalIncome = transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalExpense = filteredTransactions
+    
+    const totalExpense = transactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-
+    
     return {
       totalIncome,
       totalExpense,
       balance: totalIncome - totalExpense,
-      transactionCount: filteredTransactions.length,
     };
-  };
+  }, [transactions]);
 
-  const getMonthlyStats = (): MonthlyStats[] => {
-    const stats: { [key: string]: { income: number; expense: number } } = {};
+  const getMonthlyStats = useCallback((): MonthlyStats => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    transactions.forEach(t => {
-      const month = t.date.slice(0, 7); // YYYY-MM
-      if (!stats[month]) {
-        stats[month] = { income: 0, expense: 0 };
-      }
-      if (t.type === 'income') {
-        stats[month].income += t.amount;
-      } else {
-        stats[month].expense += t.amount;
-      }
-    });
+    const currentIncome = transactions
+      .filter(t => {
+        const date = new Date(t.date);
+        return t.type === 'income' && 
+               date.getFullYear() === currentYear && 
+               date.getMonth() === currentMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
 
-    return Object.entries(stats)
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([month, data]) => ({
-        month,
-        income: data.income,
-        expense: data.expense,
-        balance: data.income - data.expense,
-      }));
-  };
+    const currentExpense = transactions
+      .filter(t => {
+        const date = new Date(t.date);
+        return t.type === 'expense' && 
+               date.getFullYear() === currentYear && 
+               date.getMonth() === currentMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  const getCategoryTotals = (
-    type: TransactionType, 
-    startDate?: string, 
-    endDate?: string
-  ): CategoryTotal[] => {
-    let filteredTransactions = transactions.filter(t => t.type === type);
+    const previousIncome = transactions
+      .filter(t => {
+        const date = new Date(t.date);
+        return t.type === 'income' && 
+               date.getFullYear() === previousYear && 
+               date.getMonth() === previousMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
 
-    if (startDate && endDate) {
-      filteredTransactions = filteredTransactions.filter(
-        t => t.date >= startDate && t.date <= endDate
-      );
-    }
+    const previousExpense = transactions
+      .filter(t => {
+        const date = new Date(t.date);
+        return t.type === 'expense' && 
+               date.getFullYear() === previousYear && 
+               date.getMonth() === previousMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
 
-    const totals: { [key: string]: number } = {};
-    filteredTransactions.forEach(t => {
+    const incomeChange = previousIncome > 0 
+      ? ((currentIncome - previousIncome) / previousIncome) * 100 
+      : 0;
+    const expenseChange = previousExpense > 0 
+      ? ((currentExpense - previousExpense) / previousExpense) * 100 
+      : 0;
+
+    return {
+      currentMonth: { income: currentIncome, expense: currentExpense },
+      previousMonth: { income: previousIncome, expense: previousExpense },
+      incomeChange,
+      expenseChange,
+    };
+  }, [transactions]);
+
+  const getCategoryTotals = useCallback((type: TransactionType): Record<string, number> => {
+    const filtered = transactions.filter(t => t.type === type);
+    const totals: Record<string, number> = {};
+    
+    filtered.forEach(t => {
       totals[t.category] = (totals[t.category] || 0) + t.amount;
     });
-
-    const totalAmount = Object.values(totals).reduce((sum, amount) => sum + amount, 0);
-
-    return Object.entries(totals)
-      .sort((a, b) => b[1] - a[1])
-      .map(([category, amount]) => ({
-        category,
-        amount,
-        percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0,
-      }));
-  };
-
-  const getMonthlyData = (): MonthlyData[] => {
-    const data: { [key: string]: { income: number; expense: number } } = {};
     
-    // Get last 12 months
-    const now = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = d.toISOString().slice(0, 7);
-      data[monthKey] = { income: 0, expense: 0 };
-    }
+    return totals;
+  }, [transactions]);
 
+  const getMonthlyData = useCallback(() => {
+    const monthlyData: Record<string, { income: number; expense: number }> = {};
+    
     transactions.forEach(t => {
-      const month = t.date.slice(0, 7);
-      if (data[month]) {
-        if (t.type === 'income') {
-          data[month].income += t.amount;
-        } else {
-          data[month].expense += t.amount;
-        }
+      const date = new Date(t.date);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[key]) {
+        monthlyData[key] = { income: 0, expense: 0 };
+      }
+      
+      if (t.type === 'income') {
+        monthlyData[key].income += t.amount;
+      } else {
+        monthlyData[key].expense += t.amount;
       }
     });
+    
+    return Object.entries(monthlyData)
+      .map(([month, data]) => ({ month, ...data }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-6);
+  }, [transactions]);
 
-    return Object.entries(data).map(([month, values]) => ({
-      month,
-      income: values.income,
-      expense: values.expense,
-    }));
-  };
+  const searchTransactions = useCallback((query: string) => {
+    const lowerQuery = query.toLowerCase();
+    return transactions.filter(t => 
+      t.description.toLowerCase().includes(lowerQuery) ||
+      t.category.toLowerCase().includes(lowerQuery)
+    );
+  }, [transactions]);
 
   return {
     user,
@@ -376,6 +485,6 @@ export function useSupabaseFinance(): UseSupabaseFinanceReturn {
     getMonthlyStats,
     getCategoryTotals,
     getMonthlyData,
-    refreshData,
+    searchTransactions,
   };
 }
